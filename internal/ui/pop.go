@@ -224,7 +224,7 @@ func (m PopModel) View() string {
 	s += m.textInput.View() + "\n\n"
 
 	if len(m.commands) == 0 {
-		s += dimStyle.Render("No saved commands. Press Ctrl+A to add one.") + "\n"
+		s += dimStyle.Render("No saved commands. Press Ctrl+A or run 'cli-stash add'.") + "\n"
 	} else if len(m.filtered) == 0 {
 		s += dimStyle.Render("No matching commands.") + "\n"
 	} else {

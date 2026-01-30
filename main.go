@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -25,14 +24,6 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-var pushCmd = &cobra.Command{
-	Use:   "push",
-	Short: "Save the last command or enter a new one",
-	Run: func(cmd *cobra.Command, args []string) {
-		runPush()
-	},
-}
-
 var popCmd = &cobra.Command{
 	Use:   "pop",
 	Short: "Show saved commands with fuzzy search",
@@ -50,22 +41,25 @@ var listCmd = &cobra.Command{
 }
 
 var addCmd = &cobra.Command{
-	Use:     "add",
-	Aliases: []string{"-"},
-	Short:   "Save command from pipe",
-	Long:    "Read commands from stdin and save them. Usage: echo 'command' | cli-stash add",
+	Use:   "add [command]",
+	Short: "Add a new command (as argument or interactive)",
+	Long: `Add a new command to stash.
+
+As argument:
+  cli-stash add echo "hello world"
+
+Interactively (shows UI with last command from history):
+  cli-stash add`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if isPiped() {
-			saveFromPipe()
+		if len(args) > 0 {
+			saveCommand(strings.Join(args, " "))
 		} else {
-			fmt.Fprintln(os.Stderr, "Usage: echo 'command' | cli-stash add")
-			os.Exit(1)
+			runAdd()
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(pushCmd)
 	rootCmd.AddCommand(popCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(addCmd)
@@ -79,7 +73,7 @@ func main() {
 	}
 }
 
-func runPush() {
+func runAdd() {
 	store, err := storage.New()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing storage: %v\n", err)
@@ -147,7 +141,7 @@ func runList() {
 	}
 
 	if len(commands) == 0 {
-		fmt.Println("No saved commands. Use 'cli-stash push' to add some.")
+		fmt.Println("No saved commands. Use 'cli-stash add' to add some.")
 		return
 	}
 
@@ -156,35 +150,22 @@ func runList() {
 	}
 }
 
-func isPiped() bool {
-	stat, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return (stat.Mode() & os.ModeCharDevice) == 0
-}
-
-func saveFromPipe() {
+func saveCommand(cmd string) {
 	store, err := storage.New()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing storage: %v\n", err)
 		os.Exit(1)
 	}
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			if err := store.Add(line); err != nil {
-				fmt.Fprintf(os.Stderr, "Error saving command: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("Saved: %s\n", line)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		fmt.Fprintln(os.Stderr, "Empty command")
 		os.Exit(1)
 	}
+
+	if err := store.Add(cmd); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving command: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Saved: %s\n", cmd)
 }

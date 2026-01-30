@@ -4,10 +4,10 @@ A terminal UI application for saving and recalling shell commands, built with [B
 
 ## Features
 
-- **Save commands** - Use `cli-stash push` to save the last command from your shell history
+- **Save commands** - Use `cli-stash add` or pipe commands directly
 - **Fuzzy search** - Quickly find saved commands with real-time filtering
+- **Smart sorting** - Commands sorted by usage frequency
 - **Interactive UI** - Navigate with arrow keys, select with Enter
-- **Delete commands** - Remove unwanted commands with Ctrl+D
 
 ## Installation
 
@@ -28,15 +28,17 @@ sudo mv cli-stash /usr/local/bin/
 
 ## Usage
 
-### Save a Command
+### Add a Command
 
-After running a command you want to save:
-
+As argument:
 ```bash
-cli-stash push
+cli-stash add echo "hello world"
 ```
 
-This shows the last command from your shell history. Press Enter to save it, or edit it first.
+Interactive mode (shows last command from history):
+```bash
+cli-stash add
+```
 
 ### Recall a Command
 
@@ -49,7 +51,8 @@ cli-stash pop
 This opens an interactive UI where you can:
 - Type to filter commands
 - Use ↑/↓ to navigate
-- Press Enter to select (command is inserted into terminal, ready to execute)
+- Press Enter to select (command is inserted into terminal)
+- Press Ctrl+A to add a new command
 - Press Ctrl+D to delete a command
 - Press Esc to cancel
 
@@ -59,11 +62,11 @@ This opens an interactive UI where you can:
 cli-stash list
 ```
 
-### How It Works
+## How It Works
 
 When you select a command, it's automatically inserted into your terminal prompt. Just press Enter to execute it, or edit it first.
 
-If terminal insert is not supported (e.g., on newer Linux kernels), the command is copied to clipboard instead.
+Commands are sorted by usage frequency - most used commands appear first.
 
 ## Keybindings
 
