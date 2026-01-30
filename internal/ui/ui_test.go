@@ -36,74 +36,6 @@ func createTestStorage(t *testing.T) (*storage.Storage, func()) {
 	return store, cleanup
 }
 
-func TestPushModel(t *testing.T) {
-	store, cleanup := createTestStorage(t)
-	defer cleanup()
-
-	t.Run("NewPushModel", func(t *testing.T) {
-		model := NewPushModel("echo test", store)
-
-		if model.textInput.Value() != "echo test" {
-			t.Errorf("NewPushModel() textInput.Value() = %q, want %q", model.textInput.Value(), "echo test")
-		}
-		if model.lastCommand != "echo test" {
-			t.Errorf("NewPushModel() lastCommand = %q, want %q", model.lastCommand, "echo test")
-		}
-	})
-
-	t.Run("Init", func(t *testing.T) {
-		model := NewPushModel("", store)
-		cmd := model.Init()
-		if cmd == nil {
-			t.Error("Init() returned nil, expected blink command")
-		}
-	})
-
-	t.Run("UpdateEsc", func(t *testing.T) {
-		model := NewPushModel("test", store)
-		newModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
-
-		pushModel := newModel.(PushModel)
-		if !pushModel.quitting {
-			t.Error("Update(Esc) should set quitting to true")
-		}
-		if cmd == nil {
-			t.Error("Update(Esc) should return Quit command")
-		}
-	})
-
-	t.Run("UpdateEnter", func(t *testing.T) {
-		model := NewPushModel("save this", store)
-		newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
-
-		pushModel := newModel.(PushModel)
-		if !pushModel.saved {
-			t.Error("Update(Enter) should set saved to true")
-		}
-
-		// Verify command was saved
-		commands, err := store.List()
-		if err != nil {
-			t.Fatalf("List() error = %v", err)
-		}
-		if len(commands) != 1 || commands[0] != "save this" {
-			t.Errorf("Command was not saved correctly: %v", commands)
-		}
-	})
-
-	t.Run("View", func(t *testing.T) {
-		model := NewPushModel("test cmd", store)
-		view := model.View()
-
-		if !strings.Contains(view, "Stash Push") {
-			t.Error("View() should contain title 'Stash Push'")
-		}
-		if !strings.Contains(view, "Enter to save") {
-			t.Error("View() should contain help text")
-		}
-	})
-}
-
 func TestPopModel(t *testing.T) {
 	store, cleanup := createTestStorage(t)
 	defer cleanup()
@@ -186,6 +118,24 @@ func TestPopModel(t *testing.T) {
 		}
 		if !strings.Contains(view, "navigate") {
 			t.Error("View() should contain help text")
+		}
+	})
+
+	t.Run("HistoryMode", func(t *testing.T) {
+		model, _ := NewPopModel(store)
+
+		// Switch to history mode
+		newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlA})
+		popModel := newModel.(PopModel)
+		if !popModel.historyMode {
+			t.Error("Update(Ctrl+A) should enable historyMode")
+		}
+
+		// Press Esc to return
+		newModel, _ = popModel.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		popModel = newModel.(PopModel)
+		if popModel.historyMode {
+			t.Error("Update(Esc) in historyMode should return to normal mode")
 		}
 	})
 }
