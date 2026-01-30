@@ -2,6 +2,8 @@
 
 A terminal UI application for saving and recalling shell commands, built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
+![Example](.github/images/example.gif)
+
 ## Features
 
 - **Save commands** - Browse shell history and save with Ctrl+A
