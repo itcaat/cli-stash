@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/itcaat/cli-stash/internal/shell"
 	"github.com/itcaat/cli-stash/internal/storage"
+	"github.com/itcaat/cli-stash/internal/terminal"
 	"github.com/itcaat/cli-stash/internal/ui"
 )
 
@@ -73,11 +75,19 @@ func runPop() {
 		os.Exit(1)
 	}
 
-	// If a command was selected, print it (for use with eval)
+	// If a command was selected, insert it into terminal
 	if m, ok := finalModel.(ui.PopModel); ok {
 		if selected := m.Selected(); selected != "" {
-			// Print to stdout so it can be captured or executed
-			fmt.Println(selected)
+			// Try to insert into terminal input buffer
+			if err := terminal.InsertInput(selected); err != nil {
+				// Fallback to clipboard if TIOCSTI fails
+				if clipErr := clipboard.WriteAll(selected); clipErr != nil {
+					// Last resort: just print
+					fmt.Println(selected)
+				} else {
+					fmt.Fprintf(os.Stderr, "Copied to clipboard: %s\n", selected)
+				}
+			}
 		}
 	}
 }
@@ -123,8 +133,8 @@ Navigation (in interactive mode):
 
 Tips:
   - Use 'cli-stash push' after running a command you want to save
-  - Selected commands are printed to stdout for easy piping
-  - Example: eval $(cli-stash) to execute a selected command
+  - Selected command is inserted into terminal, ready to edit/execute
+  - If terminal insert fails, command is copied to clipboard
 `
 	fmt.Print(help)
 }

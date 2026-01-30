@@ -49,7 +49,7 @@ cli-stash pop
 This opens an interactive UI where you can:
 - Type to filter commands
 - Use ↑/↓ to navigate
-- Press Enter to select (prints to stdout)
+- Press Enter to select (command is inserted into terminal, ready to execute)
 - Press Ctrl+D to delete a command
 - Press Esc to cancel
 
@@ -59,11 +59,11 @@ This opens an interactive UI where you can:
 cli-stash list
 ```
 
-### Execute a Selected Command
+### How It Works
 
-```bash
-eval $(cli-stash)
-```
+When you select a command, it's automatically inserted into your terminal prompt. Just press Enter to execute it, or edit it first.
+
+If terminal insert is not supported (e.g., on newer Linux kernels), the command is copied to clipboard instead.
 
 ## Keybindings
 
