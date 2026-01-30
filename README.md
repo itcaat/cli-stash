@@ -17,6 +17,12 @@ A terminal UI application for saving and recalling shell commands, built with [B
 brew install itcaat/tap/cli-stash
 ```
 
+### Go Install
+
+```bash
+go install github.com/itcaat/cli-stash@latest
+```
+
 ### From Source
 
 ```bash
