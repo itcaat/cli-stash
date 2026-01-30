@@ -1,0 +1,117 @@
+# GoReleaser configuration for Stash
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: stash
+    binary: stash
+    
+    # Build for multiple platforms
+    goos:
+      - linux
+      - windows
+      - darwin
+    
+    goarch:
+      - amd64
+      - arm64
+    
+    # Skip unsupported combinations
+    ignore:
+      - goos: windows
+        goarch: arm64
+    
+    # Build flags
+    flags:
+      - -trimpath
+    
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - id: stash
+    
+    # Archive name template
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    
+    # Files to include in archive
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+
+release:
+  github:
+    owner: itcaat
+    name: cli-stash
+  
+  draft: false
+  prerelease: auto
+  
+  name_template: "Stash v{{.Version}}"
+  
+  header: |
+    ## Stash v{{.Version}}
+    
+    A terminal UI application for saving and recalling shell commands.
+    
+    ### Installation
+    
+    Download the appropriate binary for your platform from the assets below.
+    
+  footer: |
+    ### Usage
+    
+    - `stash push` - Save the last command from shell history
+    - `stash` or `stash pop` - Interactive search and select saved commands
+    - `stash list` - List all saved commands
+    
+    For more information, see the [README](https://github.com/itcaat/cli-stash/blob/main/README.md).
+
+# Universal Binaries for macOS
+universal_binaries:
+  - replace: true
+
+# Homebrew tap
+brews:
+  - repository:
+      owner: itcaat
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    
+    name: cli-stash
+    homepage: "https://github.com/itcaat/cli-stash"
+    description: "A terminal UI application for saving and recalling shell commands"
+    license: "MIT"
+    
+    install: |
+      bin.install "stash"
+    
+    test: |
+      system "#{bin}/stash", "help"
