@@ -119,6 +119,9 @@ func runPop() {
 
 	if m, ok := finalModel.(ui.PopModel); ok {
 		if selected := m.Selected(); selected != "" {
+			// Increment usage counter
+			store.IncrementUse(selected)
+
 			if err := terminal.InsertInput(selected); err != nil {
 				if clipErr := clipboard.WriteAll(selected); clipErr != nil {
 					fmt.Println(selected)

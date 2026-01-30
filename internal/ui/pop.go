@@ -220,7 +220,7 @@ func (m PopModel) View() string {
 		return s + "\n"
 	}
 
-	s := titleStyle.Render("Stash") + "\n\n"
+	s := titleStyle.Render("Stash") + " " + dimStyle.Render("- saved commands (sorted by usage)") + "\n\n"
 	s += m.textInput.View() + "\n\n"
 
 	if len(m.commands) == 0 {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -11,6 +12,7 @@ import (
 type Command struct {
 	Text      string    `json:"text"`
 	CreatedAt time.Time `json:"created_at"`
+	UseCount  int       `json:"use_count"`
 }
 
 // Storage handles saving and loading commands
@@ -80,6 +82,7 @@ func (s *Storage) Add(text string) error {
 	commands = append(commands, Command{
 		Text:      text,
 		CreatedAt: time.Now(),
+		UseCount:  0,
 	})
 
 	return s.Save(commands)
@@ -102,12 +105,37 @@ func (s *Storage) Remove(text string) error {
 	return s.Save(filtered)
 }
 
-// List returns all command texts
+// IncrementUse increases the use count for a command
+func (s *Storage) IncrementUse(text string) error {
+	commands, err := s.Load()
+	if err != nil {
+		return err
+	}
+
+	for i, cmd := range commands {
+		if cmd.Text == text {
+			commands[i].UseCount++
+			break
+		}
+	}
+
+	return s.Save(commands)
+}
+
+// List returns all command texts sorted by usage (most used first)
 func (s *Storage) List() ([]string, error) {
 	commands, err := s.Load()
 	if err != nil {
 		return nil, err
 	}
+
+	// Sort by use count (descending), then by date (newest first)
+	sort.Slice(commands, func(i, j int) bool {
+		if commands[i].UseCount != commands[j].UseCount {
+			return commands[i].UseCount > commands[j].UseCount
+		}
+		return commands[i].CreatedAt.After(commands[j].CreatedAt)
+	})
 
 	texts := make([]string, len(commands))
 	for i, cmd := range commands {
