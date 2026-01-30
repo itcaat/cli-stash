@@ -4,7 +4,7 @@ A terminal UI application for saving and recalling shell commands, built with [B
 
 ## Features
 
-- **Save commands** - Use `cli-stash add` or pipe commands directly
+- **Save commands** - Browse shell history and save with Ctrl+A
 - **Fuzzy search** - Quickly find saved commands with real-time filtering
 - **Smart sorting** - Commands sorted by usage frequency
 - **Interactive UI** - Navigate with arrow keys, select with Enter
@@ -28,33 +28,23 @@ sudo mv cli-stash /usr/local/bin/
 
 ## Usage
 
-### Add a Command
-
-As argument:
-```bash
-cli-stash add echo "hello world"
-```
-
-Interactive mode (shows last command from history):
-```bash
-cli-stash add
-```
-
 ### Recall a Command
 
 ```bash
 cli-stash
-# or
-cli-stash pop
 ```
 
 This opens an interactive UI where you can:
 - Type to filter commands
 - Use ↑/↓ to navigate
 - Press Enter to select (command is inserted into terminal)
-- Press Ctrl+A to add a new command
+- Press Ctrl+A to add from shell history
 - Press Ctrl+D to delete a command
 - Press Esc to cancel
+
+### Add a Command
+
+Press **Ctrl+A** in the main view to browse your shell history. Type to filter, then press Enter to save the selected command.
 
 ### List All Commands
 
@@ -74,9 +64,9 @@ Commands are sorted by usage frequency - most used commands appear first.
 |-----|--------|
 | ↑ / ↓ | Navigate |
 | Enter | Select/Save |
-| Ctrl+A | Add new command |
+| Ctrl+A | Browse shell history |
 | Ctrl+D | Delete command |
-| Esc | Cancel |
+| Esc | Cancel / Back |
 
 ## Storage
 

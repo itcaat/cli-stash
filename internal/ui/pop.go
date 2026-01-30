@@ -7,10 +7,15 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/itcaat/cli-stash/internal/shell"
 	"github.com/itcaat/cli-stash/internal/storage"
 )
 
 var (
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("205"))
+
 	selectedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("205")).
 			Bold(true)
@@ -28,16 +33,16 @@ var (
 
 // PopModel represents the pop/list command UI
 type PopModel struct {
-	textInput    textinput.Model
-	commands     []string
-	filtered     []string
-	cursor       int
-	selected     string
-	quitting     bool
-	adding       bool
-	storage      *storage.Storage
-	executed     bool
-	executeError error
+	textInput     textinput.Model
+	commands      []string // saved commands
+	filtered      []string
+	history       []string // shell history
+	historyFilter []string
+	cursor        int
+	selected      string
+	quitting      bool
+	historyMode   bool // true = browsing history, false = browsing saved
+	storage       *storage.Storage
 }
 
 // NewPopModel creates a new pop model
@@ -72,37 +77,58 @@ func (m PopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Handle adding mode
-		if m.adding {
+		// History browsing mode
+		if m.historyMode {
 			switch msg.String() {
 			case "ctrl+c", "esc":
-				// Cancel adding, return to list
-				m.adding = false
+				// Return to saved commands
+				m.historyMode = false
 				m.textInput.SetValue("")
 				m.textInput.Placeholder = "Type to filter commands..."
+				m.filtered = m.commands
+				m.cursor = 0
+				return m, nil
+
+			case "up", "ctrl+p":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+				return m, nil
+
+			case "down", "ctrl+n":
+				if m.cursor < len(m.historyFilter)-1 {
+					m.cursor++
+				}
 				return m, nil
 
 			case "enter":
-				// Save the new command
-				text := m.textInput.Value()
-				if text != "" {
-					m.storage.Add(text)
+				// Save selected history command
+				if len(m.historyFilter) > 0 && m.cursor < len(m.historyFilter) {
+					selectedCmd := m.historyFilter[m.cursor]
+					m.storage.Add(selectedCmd)
 					m.commands, _ = m.storage.List()
 					m.filtered = m.commands
 				}
-				m.adding = false
+				// Return to saved commands view
+				m.historyMode = false
 				m.textInput.SetValue("")
 				m.textInput.Placeholder = "Type to filter commands..."
 				m.cursor = 0
 				return m, nil
 			}
 
-			// Update text input in adding mode
+			// Update text input in history mode
+			prevValue := m.textInput.Value()
 			m.textInput, cmd = m.textInput.Update(msg)
+
+			if m.textInput.Value() != prevValue {
+				m.historyFilter = m.filterHistory(m.textInput.Value())
+				m.cursor = 0
+			}
 			return m, cmd
 		}
 
-		// Normal mode
+		// Normal mode (saved commands)
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			m.quitting = true
@@ -127,10 +153,13 @@ func (m PopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "ctrl+a":
-			// Switch to adding mode
-			m.adding = true
+			// Switch to history mode
+			m.historyMode = true
+			m.history = shell.GetHistory(500)
+			m.historyFilter = m.history
 			m.textInput.SetValue("")
-			m.textInput.Placeholder = "Enter new command to save..."
+			m.textInput.Placeholder = "Type to filter history..."
+			m.cursor = 0
 			return m, nil
 
 		case "ctrl+d", "delete":
@@ -138,7 +167,6 @@ func (m PopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				cmdToDelete := m.filtered[m.cursor]
 				if err := m.storage.Remove(cmdToDelete); err == nil {
-					// Refresh the list
 					m.commands, _ = m.storage.List()
 					m.filtered = m.filterCommands(m.textInput.Value())
 					if m.cursor >= len(m.filtered) && m.cursor > 0 {
@@ -154,7 +182,6 @@ func (m PopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	prevValue := m.textInput.Value()
 	m.textInput, cmd = m.textInput.Update(msg)
 
-	// Filter commands if input changed
 	if m.textInput.Value() != prevValue {
 		m.filtered = m.filterCommands(m.textInput.Value())
 		m.cursor = 0
@@ -163,7 +190,7 @@ func (m PopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// filterCommands filters commands based on input
+// filterCommands filters saved commands based on input
 func (m PopModel) filterCommands(query string) []string {
 	if query == "" {
 		return m.commands
@@ -181,6 +208,24 @@ func (m PopModel) filterCommands(query string) []string {
 	return filtered
 }
 
+// filterHistory filters shell history based on input
+func (m PopModel) filterHistory(query string) []string {
+	if query == "" {
+		return m.history
+	}
+
+	query = strings.ToLower(query)
+	var filtered []string
+
+	for _, cmd := range m.history {
+		if strings.Contains(strings.ToLower(cmd), query) {
+			filtered = append(filtered, cmd)
+		}
+	}
+
+	return filtered
+}
+
 // highlightMatch highlights the matching part of a command
 func highlightMatch(cmd, query string) string {
 	if query == "" {
@@ -189,7 +234,7 @@ func highlightMatch(cmd, query string) string {
 
 	lowerCmd := strings.ToLower(cmd)
 	lowerQuery := strings.ToLower(query)
-	
+
 	idx := strings.Index(lowerCmd, lowerQuery)
 	if idx == -1 {
 		return cmd
@@ -212,52 +257,68 @@ func (m PopModel) View() string {
 		return "" // main.go handles inserting into terminal
 	}
 
-	// Adding mode
-	if m.adding {
-		s := titleStyle.Render("Add Command") + "\n\n"
+	// History mode
+	if m.historyMode {
+		s := titleStyle.Render("Shell History") + " " + dimStyle.Render("- select to save") + "\n\n"
 		s += m.textInput.View() + "\n\n"
-		s += dimStyle.Render("Enter to save • Esc to cancel")
+
+		if len(m.history) == 0 {
+			s += dimStyle.Render("No shell history found.") + "\n"
+		} else if len(m.historyFilter) == 0 {
+			s += dimStyle.Render("No matching commands.") + "\n"
+		} else {
+			s += m.renderList(m.historyFilter)
+			s += "\n" + dimStyle.Render(fmt.Sprintf("Showing %d of %d history items", len(m.historyFilter), len(m.history)))
+		}
+
+		s += "\n\n" + dimStyle.Render("↑/↓ navigate • Enter save • Esc back")
 		return s + "\n"
 	}
 
+	// Normal mode (saved commands)
 	s := titleStyle.Render("Stash") + " " + dimStyle.Render("- saved commands (sorted by usage)") + "\n\n"
 	s += m.textInput.View() + "\n\n"
 
 	if len(m.commands) == 0 {
-		s += dimStyle.Render("No saved commands. Press Ctrl+A or run 'cli-stash add'.") + "\n"
+		s += dimStyle.Render("No saved commands. Press Ctrl+A to add from history.") + "\n"
 	} else if len(m.filtered) == 0 {
 		s += dimStyle.Render("No matching commands.") + "\n"
 	} else {
-		// Show filtered commands
-		maxShow := 10
-		start := 0
-		if m.cursor >= maxShow {
-			start = m.cursor - maxShow + 1
-		}
-
-		end := start + maxShow
-		if end > len(m.filtered) {
-			end = len(m.filtered)
-		}
-
-		for i := start; i < end; i++ {
-			cmd := m.filtered[i]
-			displayCmd := highlightMatch(cmd, m.textInput.Value())
-
-			if i == m.cursor {
-				s += selectedStyle.Render("▸ ") + displayCmd + "\n"
-			} else {
-				s += normalStyle.Render("  ") + displayCmd + "\n"
-			}
-		}
-
-		// Show count
+		s += m.renderList(m.filtered)
 		s += "\n" + dimStyle.Render(fmt.Sprintf("Showing %d of %d commands", len(m.filtered), len(m.commands)))
 	}
 
 	s += "\n\n" + dimStyle.Render("↑/↓ navigate • Enter select • Ctrl+A add • Ctrl+D delete • Esc cancel")
 
 	return s + "\n"
+}
+
+// renderList renders a list of commands with cursor
+func (m PopModel) renderList(items []string) string {
+	maxShow := 10
+	start := 0
+	if m.cursor >= maxShow {
+		start = m.cursor - maxShow + 1
+	}
+
+	end := start + maxShow
+	if end > len(items) {
+		end = len(items)
+	}
+
+	var s string
+	for i := start; i < end; i++ {
+		cmd := items[i]
+		displayCmd := highlightMatch(cmd, m.textInput.Value())
+
+		if i == m.cursor {
+			s += selectedStyle.Render("▸ ") + displayCmd + "\n"
+		} else {
+			s += normalStyle.Render("  ") + displayCmd + "\n"
+		}
+	}
+
+	return s
 }
 
 // Selected returns the selected command
