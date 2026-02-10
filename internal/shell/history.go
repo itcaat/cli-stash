@@ -267,28 +267,56 @@ func getZshHistoryAll(limit int) []string {
 		return nil
 	}
 
-	lines := strings.Split(string(data), "\n")
+	// Parse zsh history handling multi-line commands
+	// Multi-line commands end with \ and continue on next line
+	commands := parseZshHistory(string(data), limit)
+	return commands
+}
+
+// parseZshHistory parses zsh history format including multi-line commands
+func parseZshHistory(data string, limit int) []string {
+	lines := strings.Split(data, "\n")
 	seen := make(map[string]bool)
 	var commands []string
+	var allCommands []string
+	var currentCmd strings.Builder
 
-	for i := len(lines) - 1; i >= 0 && len(commands) < limit; i-- {
-		line := strings.TrimSpace(lines[i])
-		if line == "" {
-			continue
-		}
+	for _, line := range lines {
+		// Check if this is a new command entry (starts with : for extended history)
+		if strings.HasPrefix(line, ": ") {
+			// Save previous command if any
+			if currentCmd.Len() > 0 {
+				allCommands = append(allCommands, currentCmd.String())
+				currentCmd.Reset()
+			}
 
-		cmd := line
-		if strings.HasPrefix(line, ":") {
+			// Extract command after timestamp (format: ": timestamp:0;command")
 			parts := strings.SplitN(line, ";", 2)
 			if len(parts) == 2 {
-				cmd = parts[1]
+				currentCmd.WriteString(parts[1])
 			}
+		} else if line != "" {
+			// Continuation line
+			if currentCmd.Len() > 0 {
+				currentCmd.WriteString("\n")
+			}
+			currentCmd.WriteString(line)
 		}
+	}
 
-		if shouldSkipCommand(cmd) || seen[cmd] {
+	// Don't forget last command
+	if currentCmd.Len() > 0 {
+		allCommands = append(allCommands, currentCmd.String())
+	}
+
+	// Now filter and dedupe, reading from newest (end) first
+	for i := len(allCommands) - 1; i >= 0 && len(commands) < limit; i-- {
+		cmd := strings.TrimSpace(allCommands[i])
+		// Unescape double backslashes (zsh stores \ as \\)
+		cmd = strings.ReplaceAll(cmd, "\\\\", "\\")
+		if cmd == "" || shouldSkipCommand(cmd) || seen[cmd] {
 			continue
 		}
-
 		seen[cmd] = true
 		commands = append(commands, cmd)
 	}
@@ -309,22 +337,53 @@ func getBashHistoryAll(limit int) []string {
 		return nil
 	}
 
-	lines := strings.Split(string(data), "\n")
+	// Parse bash history handling multi-line commands
+	commands := parseBashHistory(string(data), limit)
+	return commands
+}
+
+// parseBashHistory parses bash history format including multi-line commands
+func parseBashHistory(data string, limit int) []string {
+	lines := strings.Split(data, "\n")
 	seen := make(map[string]bool)
 	var commands []string
 
-	for i := len(lines) - 1; i >= 0 && len(commands) < limit; i-- {
-		line := strings.TrimSpace(lines[i])
-		if line == "" {
+	// Build list of complete commands (handling continuations)
+	var allCommands []string
+	var currentCmd strings.Builder
+
+	for _, line := range lines {
+		// Check for line continuation (ends with \)
+		if strings.HasSuffix(line, "\\") {
+			if currentCmd.Len() > 0 {
+				currentCmd.WriteString("\n")
+			}
+			currentCmd.WriteString(line)
+		} else {
+			if currentCmd.Len() > 0 {
+				currentCmd.WriteString("\n")
+				currentCmd.WriteString(line)
+				allCommands = append(allCommands, currentCmd.String())
+				currentCmd.Reset()
+			} else if line != "" {
+				allCommands = append(allCommands, line)
+			}
+		}
+	}
+
+	// Don't forget last command if incomplete
+	if currentCmd.Len() > 0 {
+		allCommands = append(allCommands, currentCmd.String())
+	}
+
+	// Now filter and dedupe, reading from newest (end) first
+	for i := len(allCommands) - 1; i >= 0 && len(commands) < limit; i-- {
+		cmd := strings.TrimSpace(allCommands[i])
+		if cmd == "" || shouldSkipCommand(cmd) || seen[cmd] {
 			continue
 		}
-
-		if shouldSkipCommand(line) || seen[line] {
-			continue
-		}
-
-		seen[line] = true
-		commands = append(commands, line)
+		seen[cmd] = true
+		commands = append(commands, cmd)
 	}
 
 	return commands

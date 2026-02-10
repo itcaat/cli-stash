@@ -17,7 +17,6 @@ var (
 			Foreground(lipgloss.Color("205"))
 
 	selectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205")).
 			Bold(true)
 
 	normalStyle = lipgloss.NewStyle().
@@ -362,11 +361,12 @@ func (m PopModel) renderList(items []string) string {
 	var s string
 	for i := start; i < end; i++ {
 		cmd := items[i]
-		displayCmd := highlightMatch(cmd, m.textInput.Value())
 
 		if i == m.cursor {
-			s += selectedStyle.Render("▸ ") + displayCmd + "\n"
+			// Selected: bright cyan with underline
+			s += selectedStyle.Render("▸ " + cmd) + "\n"
 		} else {
+			displayCmd := highlightMatch(cmd, m.textInput.Value())
 			s += normalStyle.Render("  ") + displayCmd + "\n"
 		}
 	}
