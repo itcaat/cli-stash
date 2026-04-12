@@ -54,7 +54,7 @@ This opens an interactive UI where you can:
 
 Press **Ctrl+A** in the main view to browse your shell history. Type to filter, then press Enter to save the selected command.
 
-Also you can add few commands using add param:
+Also you can add few commands using add param. This change improves the usability of cli-stash and makes it a more powerful tool for managing shell commands:
 
 ```bash
 # Bulk add commands
@@ -63,7 +63,6 @@ cli-stash add --bulk "git status, docker ps, kubectl get pods"
 
 # Add commands from a file
 cli-stash add --file commands.txt
-This change improves the usability of cli-stash and makes it a more powerful tool for managing shell commands.
 ```
 
 ### List All Commands
