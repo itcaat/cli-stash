@@ -88,6 +88,43 @@ func (s *Storage) Add(text string) error {
 	return s.Save(commands)
 }
 
+// AddBulk appends multiple new commands to storage
+func (s *Storage) AddBulk(texts []string) (int, error) {
+	commands, err := s.Load()
+	if err != nil {
+		return 0, err
+	}
+
+	existing := make(map[string]bool)
+	for _, cmd := range commands {
+		existing[cmd.Text] = true
+	}
+
+	var newCommands []Command
+	for _, text := range texts {
+		if _, found := existing[text]; !found {
+			newCommands = append(newCommands, Command{
+				Text:      text,
+				CreatedAt: time.Now(),
+				UseCount:  0,
+			})
+			existing[text] = true // Mark as seen for future checks within the same bulk add
+		}
+	}
+
+	if len(newCommands) == 0 {
+		return 0, nil
+	}
+
+	allCommands := append(commands, newCommands...)
+
+	if err := s.Save(allCommands); err != nil {
+		return 0, err
+	}
+
+	return len(newCommands), nil
+}
+
 // Remove deletes a command from storage
 func (s *Storage) Remove(text string) error {
 	commands, err := s.Load()
